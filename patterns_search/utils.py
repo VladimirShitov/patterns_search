@@ -7,6 +7,13 @@ import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 
 
+def scale_curve(curve: np.array) -> np.array:
+    """Scale `curve` from 0 to 1 and subtract it from 1"""
+    scaler = MinMaxScaler()
+    new_curve = scaler.fit_transform(curve.reshape(-1, 1)).flatten()
+    return 1 - new_curve
+
+
 def find_distant_dots(dots: np.array, result_length: int, min_distance: int):
     """Filter `dots` so that minimum distance between them is more or equals than `min_distance`
 

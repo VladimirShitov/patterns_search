@@ -10,6 +10,7 @@ from .utils import (
     apply_sliding_function,
     find_distant_dots,
     make_vertical_pattern_target_plot,
+    scale_curve,
 )
 
 
@@ -20,10 +21,14 @@ class PatternSearcher:
         target: np.array,
         augmentations: List[Augmentation],
         pattern_target_ratio: float = 1.0,
+        scale_target: bool = True,
     ):
         self.target = target
         self.augmentations = augmentations
         self.history: List[SearchResult] = []
+
+        if scale_target:
+            self.target = scale_curve(self.target)
 
         if len(pattern) > len(target):
             self.pattern = self.make_pattern_shorter(
