@@ -21,7 +21,7 @@ def insert_points(x: np.array, insertion_probability=0.5) -> np.array:
     for i in range(len(x)):
         new_array.append(x[i])
 
-        if np.random.random() <= insertion_probability and i != len(x):
+        if np.random.random() <= insertion_probability and i < len(x) - 1:
             new_array.append((x[i] + x[i + 1]) / 2)
 
     return np.array(new_array)
