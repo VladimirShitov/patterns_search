@@ -94,7 +94,12 @@ def apply_sliding_function(
         if plot:
             plt.plot(np.arange(window_size), sequence_2)
 
-    normalizing_coef = 1 / fun(sequence_2, sequence_2).item()
+    self_correlation = fun(sequence_2, sequence_2).item()
+
+    if self_correlation == 0:
+        return result
+
+    normalizing_coef = 1 / self_correlation
 
     for i in range(n):
         seq_1_slice = sequence_1[i : i + window_size].copy()
