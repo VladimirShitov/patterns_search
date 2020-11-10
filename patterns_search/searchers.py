@@ -18,24 +18,17 @@ class PatternSearcher:
     def __init__(
         self,
         pattern: np.array,
-        target: np.array,
+        targets: List[np.array],
         augmentations: List[Augmentation],
-        pattern_target_ratio: float = 1.0,
         scale_target: bool = True,
     ):
-        self.target = target
+        self.pattern = pattern
+        self.targets = targets
         self.augmentations = augmentations
         self.history: List[SearchResult] = []
 
         if scale_target:
-            self.target = scale_curve(self.target)
-
-        if len(pattern) > len(target):
-            self.pattern = self.make_pattern_shorter(
-                pattern, target, ratio=pattern_target_ratio
-            )
-        else:
-            self.pattern = pattern
+            self.targets = [scale_curve(target) for target in self.targets]
 
     @staticmethod
     def make_pattern_shorter(
@@ -70,19 +63,25 @@ class PatternSearcher:
 
         return new_pattern
 
-    def visualise_history(self):
+    def visualise_history(self, cut_of_point: float = 0.9):
         for search_result in self.history:
+            n_good_results = len(search_result.result[search_result.result >= cut_of_point])
+            if not n_good_results:
+                continue
+
             top_results = search_result.result.argsort()[::-1]
             best_hits = find_distant_dots(
-                top_results, result_length=3, min_distance=len(self.target) // 10
+                top_results,
+                result_length=min(3, n_good_results),
+                min_distance=len(search_result.target) // 5
             )
 
             make_vertical_pattern_target_plot(
                 pattern=search_result.pattern,
-                target=self.target,
-                labels=np.arange(len(self.target)),
+                target=search_result.target,
+                labels=np.arange(len(search_result.target)),
                 starts=best_hits,
-                offset=len(self.target) // 10,
+                offset=len(search_result.target) // 3,
                 pattern_name="Pattern",
                 starts_confidence=search_result.result[best_hits]
             )
@@ -96,22 +95,25 @@ class CorrelationSearcher(PatternSearcher):
     def __init__(
         self,
         pattern: np.array,
-        target: np.array,
+        targets: List[np.array],
         augmentations: List[Augmentation],
-        pattern_target_ratio: float = 0.5,
     ):
-        super().__init__(pattern, target, augmentations, pattern_target_ratio)
+        super().__init__(pattern, targets, augmentations)
 
     def search(self, n_tries: int = 1):
         for _ in range(n_tries):
-            augmentation: Augmentation = random.choice(self.augmentations)
-            augmented_pattern = augmentation.generate(self.pattern)
+            for target in self.targets:
+                augmentation: Augmentation = random.choice(self.augmentations)
+                augmented_pattern = augmentation.generate(self.pattern)
 
-            result = apply_sliding_function(
-                sequence_1=self.target,
-                sequence_2=augmented_pattern,
-                fun=np.correlate,
-                do_center=True,
-            )
+                if len(augmented_pattern) > len(target):
+                    augmented_pattern = self.make_pattern_shorter(augmented_pattern, target)
 
-            self.history.append(SearchResult(pattern=augmented_pattern, result=result))
+                result = apply_sliding_function(
+                    sequence_1=target,
+                    sequence_2=augmented_pattern,
+                    fun=np.correlate,
+                    do_center=True,
+                )
+
+                self.history.append(SearchResult(pattern=augmented_pattern, target=target, result=result))
