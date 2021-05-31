@@ -1,6 +1,5 @@
 from pathlib import Path
 from typing import List, Optional, Iterable
-import warnings
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -51,12 +50,21 @@ def find_distant_dots(dots: np.array, result_length: int, min_distance: int):
     return result
 
 
+def plot_well_log(depth: np.array, sp: np.array, title: str = "", ax=None):
+    if ax is None:
+        ax = plt.subplot()
+    ax.plot(sp, depth)
+    ax.set_xlim(1.1, 0)
+    ax.invert_yaxis()
+    ax.set_title(title)
+    return ax
+
+
 def apply_sliding_function(
     sequence_1,
     sequence_2,
     fun,
     do_center: bool = False,
-    plot: bool = False,
     *args,
     **kwargs,
 ):
@@ -77,22 +85,18 @@ def apply_sliding_function(
     -------
     np.array with results of applying `fun` to `sequence_1` and slices of `sequence_2`
     """
-    if len(sequence_1) < len(sequence_2):
-        warnings.warn(
-            "Length of sequence_1 is less than length of sequence_2. Swapping sequences"
-        )
-        sequence_1, sequence_2 = sequence_2, sequence_1
+    # How many times to slide with `sequence_2` through `sequence_1`
+    n = len(sequence_1) - len(sequence_2) + 1
 
-    n = (
-        len(sequence_1) - len(sequence_2) + 1
-    )  # How many times to slide with `sequence_2` through `sequence_1`
-    result = np.zeros(n)
+    result = np.zeros(abs(n))
+
+    if n <= 0:
+        return result
+
     window_size = len(sequence_2)
 
     if do_center:
         sequence_2 = sequence_2 - np.mean(sequence_2)
-        if plot:
-            plt.plot(np.arange(window_size), sequence_2)
 
     self_correlation = fun(sequence_2, sequence_2).item()
 
@@ -105,13 +109,55 @@ def apply_sliding_function(
         seq_1_slice = sequence_1[i : i + window_size].copy()
         if do_center:
             seq_1_slice = seq_1_slice - np.mean(seq_1_slice)
-            if plot:
-                plt.plot(np.arange(window_size), seq_1_slice)
         result[i] = (
             fun(seq_1_slice, sequence_2, *args, **kwargs).item() * normalizing_coef
         )
 
     return result
+
+
+def apply_cross_correlation(target, pattern, center_pattern=False):
+    # How many times to slide with `pattern` through `target`
+    n = len(target) - len(pattern) + 1
+
+    result = np.zeros(abs(n))
+
+    if n <= 0:
+        return result
+
+    window_size = len(pattern)
+
+    if center_pattern:
+        pattern -= np.mean(pattern)
+
+    pattern_self_correlation = np.sqrt(np.correlate(pattern, pattern).item())
+
+    if pattern_self_correlation == 0:
+        return result
+
+    for i in range(n):
+        target_slice = target[i: i + window_size].copy()
+
+        target_slice_self_correlation = np.sqrt(np.correlate(target_slice, target_slice).item())
+        normalizing_coef = 1 / (pattern_self_correlation * target_slice_self_correlation)
+
+        result[i] = (
+                np.correlate(target_slice, pattern).item() * normalizing_coef
+        )
+
+    return result
+
+
+def fill_with_the_best_score(previous_scores: np.array, scores: np.array, pattern_length: int):
+    new_scores = previous_scores.copy()
+    for i, score in enumerate(scores):
+        if i >= len(previous_scores):
+            break
+
+        if score > previous_scores[i]:
+            new_scores[i: i + pattern_length] = score
+
+    return new_scores
 
 
 def make_vertical_pattern_target_plot(
@@ -204,4 +250,4 @@ def make_vertical_pattern_target_plot(
     if save_path:
         plt.savefig(save_path)
 
-    return axes
+    return fig, axes

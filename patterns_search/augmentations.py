@@ -74,6 +74,32 @@ def remove_random_regions(x: np.array, fraction: int, n_regions: int) -> np.arra
     return new_array
 
 
+def squeeze_function(x: np.array, coef: float = 0.8, from_: int = 0, to: int = None, normalize: bool = True):
+    """Multiply each point of `x` by `coef` between `from` and `to` indexes"""
+    if to is None:
+        to = len(x)
+
+    new_array = x.copy()
+    new_array[from_: to] *= coef
+
+    if normalize:
+        new_array = np.min([new_array, np.ones(len(new_array))], axis=0)
+
+    return new_array
+
+
+def squeeze_random_regions(x: np.array, fraction: int, n_regions: int, coef: float = .8, normalize: bool = True):
+    """Multiply `n_regions` random parts of `x` with the size (len(x) // fraction) by `coef`"""
+    new_array = x.copy()
+
+    for _ in range(n_regions):
+        start = np.random.randint(len(x) // 2)
+        end = start + len(x) // fraction
+        new_array = squeeze_function(new_array, coef=coef, from_=start, to=end, normalize=normalize)
+
+    return new_array
+
+
 class AugmentationParameter:
     """Class for creating parameter, which value should be randomly generated
 
